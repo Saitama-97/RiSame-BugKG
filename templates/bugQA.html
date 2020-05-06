@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block mainbody %}
+
+    <script src="../static/js/echarts.js"></script>
+    <script src="../static/js/jquery-1.8.3.min.js"></script>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+
+                <!--overview start-->
+                <div class="row">
+                    <div class="col-md-12">
+                        <h3 class="page-header"><i class="icon_chat_alt"></i> 智能问答 </h3>
+                        <ol class="breadcrumb">
+                            <li><i class="fa fa-home"></i><a href="\">Home</a></li>
+                            <li><i class="icon_chat_alt"></i>智能问答</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <section class="panel panel-default">
+                    <header class="panel-heading">
+                        输入问题 :
+                    </header>
+                    <div class="panel-body">
+                        <form class="form-inline" method="get" action="/qa_process">
+                            <div class="form-row">
+                                <div class="form-group col-md-10">
+                                    <input type="text" name="question" id="question" class="form-control"
+                                           placeholder="Enter text"> </input>
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <button type="submit" class="btn btn-primary btn-block"> 提交</button>
+                                </div>
+                            </div>
+                            <br/><br/>
+                            <div class="form-row">
+                                <div class="form-group col-md-12">
+                                    <p>
+                                        热门搜索:&nbsp;&nbsp;
+                                        <a href="#"
+                                           onclick="$('#question').attr('value','Firefox里经常出Bug的是哪些组件?')">
+                                            Firefox里经常出Bug的是哪些组件？</a> &nbsp;&nbsp;
+                                        <a href="#" onclick="$('#question').attr('value','症状类别为XX的历史缺陷产生的主要原因？')">
+                                            症状类别为XX的历史缺陷产生的主要原因？</a> &nbsp;&nbsp;
+                                        <a href="#" onclick="$('#question').attr('value','在XX组件中主要出现的缺陷症状是哪些？')">
+                                            在XX组件中主要出现的缺陷症状是哪些？</a>&nbsp;&nbsp;
+                                    </p>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <div class="row">
+                    {% if ctx %}
+                        <div class="col-md-12">
+                            <div class="panel panel-default">
+                                <header class="panel-heading">
+                                    <div class="panel-body">
+                                        <h2>暂未找到答案</h2>
+                                    </div>
+                                </header>
+                            </div>
+                        </div>
+                    {% endif %}
+                    {% if ret %}
+                        <div class="col-md-4">
+                            <section class="panel panel-default">
+                                <header class="panel-heading">
+                                    答案：
+                                </header>
+                                <div class="panel-body">
+                                    <table class="table" data-paging="true" data-sorting="true"
+                                           data-paging-size="10"></table>
+                                </div>
+                            </section>
+                        </div>
+                        <div class="col-md-8">
+                            <section class="panel panel-default">
+                                <header class="panel-heading">
+                                    图谱演示：
+                                </header>
+                                <div class="panel-body">
+                                    <div id="graph" style="width: 100%;height:600px;"></div>
+                                </div>
+                            </section>
+                        </div>
+                    {% endif %}
+                </div>
+
+
+            </div>
+
+        </div>
+    </div>
+    <script src="/static/js/jquery-1.8.3.min.js"></script>
+
+    {% if ret %}
+        <script type="text/javascript">
+            var ret_dict = {{ret|safe}};
+            console.log('ret_dict', ret_dict);
+            console.log(typeof (ret_dict['answer']));
+            console.log(typeof (ret_dict['answers']));
+            // 将所有的答案列在tableData中
+            tableData = [];
+            // 判断传过来的数据是一个值还是一组值
+            if (typeof (ret_dict['answers']) == 'undefined') {
+                // 一个值
+                answer = {};
+                answer['answer'] = ret_dict['answer'];
+                tableData.push(answer)
+            } else if (typeof (ret_dict['answer']) == 'undefined') {
+                // 一组值
+                for (var i = 0; i < ret_dict['answers'].length; i++) {
+                    answer = {};
+                    answer['answer'] = ret_dict['answers'][i];
+                    tableData.push(answer)
+                }
+            }
+
+            jQuery(function () {
+                $('.table').footable({
+                    "columns": [{"name": "answer", title: "答案"}],
+                    "rows": tableData
+                });
+            });
+
+            // echarts 数据
+            var data = [];
+            var links = [];
+
+            //构造数据
+            var node1 = {
+                name: ret_dict['bid'],
+                category: 0,
+                symbolSize: 50,
+            };
+            data.push(node1);
+            for (var i = 0; i < ret_dict['relations'].length; i++) {
+                var node2 = {
+                    name: ret_dict['relations'][i][1],
+                    category: 1,
+                    symbolSize: 20,
+                };
+                data.push(node2);
+                var link = {
+                    source: ret_dict['bid'],
+                    target: ret_dict['relations'][i][1],
+                    name: ret_dict['relations'][i][0],
+                    des: ret_dict['relations'][i][0]
+                };
+                links.push(link)
+            }
+            console.log(links);
+            var myChart = echarts.init(document.getElementById('graph'));
+            var categories = [{
+                name: 'Bug'
+            }, {
+                name: 'Text'
+            }];
+
+            option = {
+                // 图的标题
+                title: {
+                    text: 'BugKG 关系图'
+                },
+                // 提示框的配置
+                tooltip: {
+                    formatter: function (x) {
+                        return x.data.des;
+                    }
+                },
+                // 工具箱
+                toolbox: {
+                    // 显示工具箱
+                    show: true,
+                    feature: {
+                        mark: {
+                            show: true
+                        },
+                        // 还原
+                        restore: {
+                            show: true
+                        },
+                        // 保存为图片
+                        saveAsImage: {
+                            show: true
+                        }
+                    }
+                },
+                legend: [{
+                    // selectedMode: 'single',
+                    data: categories.map(function (a) {
+                        return a.name;
+                    })
+                }],
+                series: [{
+                    type: 'graph', // 类型:关系图
+                    layout: 'force', //图的布局，类型为力导图
+                    symbolSize: 30, // 调整节点的大小
+                    roam: false, // 是否开启鼠标缩放和平移漫游。默认不开启。如果只想要开启缩放或者平移,可以设置成 'scale' 或者 'move'。设置成 true 为都开启
+                    edgeSymbol: ['circle', 'arrow'],
+                    edgeSymbolSize: [2, 10],
+                    edgeLabel: {
+                        normal: {
+                            textStyle: {
+                                fontSize: 20
+                            }
+                        }
+                    },
+                    force: {
+                        repulsion: 1500,
+                        edgeLength: [10, 30]
+                    },
+                    draggable: true,
+                    lineStyle: {
+                        normal: {
+                            width: 2,
+                            color: '#4b565b',
+                        }
+                    },
+                    edgeLabel: {
+                        normal: {
+                            show: true,
+                            formatter: function (x) {
+                                return x.data.name;
+                            }
+                        }
+                    },
+                    label: {
+                        normal: {
+                            show: true,
+                            textStyle: {}
+                        }
+                    },
+
+                    // 数据
+                    data: data,
+                    links: links,
+                    categories: categories,
+                }]
+            };
+            myChart.setOption(option);
+        </script>
+    {% endif %}
+
+{% endblock %}
